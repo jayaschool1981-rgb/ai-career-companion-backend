@@ -8,30 +8,26 @@ import analyzeRoutes from "./src/routes/analyze.js";
 import userRoutes from "./src/routes/user.js";
 
 dotenv.config();
-
 const app = express();
 
-// ✅ Middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
-
-// ✅ Static uploads folder
 app.use("/uploads", express.static("uploads"));
 
-// ✅ Routes
-app.use("/api/auth", authRoutes);    // Register / Login
-app.use("/api/resume", resumeRoutes); // File uploads
-app.use("/api/analyze", analyzeRoutes); // Resume analysis
-app.use("/api/user", userRoutes);     // User-related routes (protected)
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/analyze", analyzeRoutes);
+app.use("/api/resume", resumeRoutes);
+app.use("/api/user", userRoutes);
 
-// ✅ Default route
+// Root Route
 app.get("/", (req, res) => {
-  res.send("AI Career Companion Backend Running 🚀");
+  res.json({ message: "AI Career Assistant Backend Running 🚀" });
 });
 
-// ✅ Connect Database
+// DB Connection
 connectDB();
 
-// ✅ Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

@@ -1,77 +1,55 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// For ESM path handling
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Root of backend folder
-const backendRoot = path.resolve(__dirname, "../../");
-
 router.post("/resume", protect, async (req, res) => {
   try {
     const { filePath } = req.body;
-    if (!filePath) {
+    if (!filePath)
       return res.status(400).json({ message: "File path required" });
-    }
 
-    // ✅ Dynamically import pdf-parse (common fix)
-    const pdfParseModule = await import("pdf-parse");
-    const pdfParse = pdfParseModule.default || pdfParseModule;
+    // Dynamically import pdf-parse to avoid ENOENT test file issue
+    const pdfModule = await import("pdf-parse");
+    const pdf = pdfModule.default || pdfModule;
 
-    // ✅ Remove base URL part and construct absolute path
-    const fileName = filePath.replace("http://localhost:5000/uploads/", "");
-    const localFilePath = path.join(backendRoot, "uploads", fileName);
+    // ✅ Convert the hosted Render path (or localhost) to a local path
+    const relativePath = filePath.replace(
+      "https://ai-career-backend.onrender.com/",
+      ""
+    ).replace("http://localhost:5000/", "");
 
-    console.log("🧩 Trying to read file at:", localFilePath);
+    // ✅ Construct correct absolute path
+    const localPath = path.join(process.cwd(), relativePath);
 
-    // ✅ Ensure file exists
-    if (!fs.existsSync(localFilePath)) {
+    // ✅ Ensure the file actually exists
+    if (!fs.existsSync(localPath)) {
       return res.status(404).json({
-        message: "File not found",
-        attemptedPath: localFilePath,
+        message: "File not found on server",
+        path: localPath,
       });
     }
 
-    // ✅ Read the actual uploaded PDF
-    const fileBuffer = fs.readFileSync(localFilePath);
+    // ✅ Read and parse the PDF
+    const dataBuffer = fs.readFileSync(localPath);
+    const pdfData = await pdf(dataBuffer);
 
-    // ✅ Parse text
-    const pdfData = await pdfParse(fileBuffer);
+    // ✅ Generate mock ATS analysis
+    const wordCount = pdfData.text.split(/\s+/).length;
+    const keywords = ["JavaScript", "React", "Node", "MongoDB", "Python"];
+    const matched = keywords.filter((kw) => pdfData.text.includes(kw));
+    const atsScore = Math.min(100, 50 + matched.length * 10 + Math.floor(wordCount / 500));
 
-    // ✅ Basic mock ATS scoring logic
-    const text = pdfData.text || "";
-    const wordCount = text.split(/\s+/).length;
-    const keywords = ["JavaScript", "React", "Node", "Python", "MongoDB"];
-    const foundKeywords = keywords.filter((word) => text.includes(word));
-    const atsScore = Math.min(100, 50 + foundKeywords.length * 10 + Math.floor(wordCount / 500));
-
-    // ✅ Send response
-    res.json({
+    res.status(200).json({
       success: true,
       message: "Mock resume analysis completed successfully",
       atsScore,
-      foundKeywords,
-      analysis: `
-✅ **AI Resume Analysis**
--------------------------
-ATS Score: ${atsScore}/100
-Found Keywords: ${foundKeywords.join(", ") || "None"}
-Word Count: ${wordCount}
-
-Suggestions:
-1️⃣ Add measurable achievements
-2️⃣ Include relevant tech keywords
-3️⃣ Keep formatting clean and simple
-`,
+      matchedKeywords: matched,
     });
   } catch (error) {
-    console.error("❌ Analyzer Error:", error);
+    console.error("Mock Analyzer Error:", error);
     res.status(500).json({
       message: "Failed to analyze resume",
       error: error.message,
