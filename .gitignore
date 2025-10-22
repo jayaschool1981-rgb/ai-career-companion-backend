@@ -1,0 +1,11 @@
+# Node dependencies
+node_modules/
+
+# Environment files
+.env
+
+# Uploads folder (optional — to save space on GitHub)
+uploads/
+
+# System files
+.DS_Store
