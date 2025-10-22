@@ -16,8 +16,10 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "keyword-extractor": "^0.0.28",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
+    "natural": "^8.1.0",
     "openai": "^6.6.0",
     "pdf-parse": "^1.1.1"
   },
