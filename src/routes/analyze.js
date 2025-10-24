@@ -36,29 +36,19 @@ router.post("/", upload.single("file"), async (req, res) => {
     if (!resumeContent.trim()) {
       return res.status(400).json({ message: "Please provide resume content." });
     }
+// ✅ Step 4: Use the latest Gemini model (no 404 errors)
+const modelName = "gemini-1.5-flash-latest";
+console.log(`🧠 Gemini model in use: ${modelName}`);
 
-    // ✅ Step 4: Use the latest Gemini model (no 404 errors)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const model = genAI.getGenerativeModel({ model: modelName });
 
-    const prompt = `
-    You are a professional AI resume analyzer.
-    Analyze the following resume and return a valid JSON ONLY.
+// ... same prompt code ...
 
-    Required JSON fields:
-    {
-      "score": number (0–100),
-      "skills": ["list of technical and soft skills"],
-      "keywords": ["ATS-relevant keywords"],
-      "feedback": "short paragraph of strengths and improvement suggestions"
-    }
+// ✅ Step 5: Generate AI content
+const result = await model.generateContent(prompt);
+const responseText = result.response.text().trim();
+console.log("✅ Gemini analysis completed successfully!");
 
-    Resume Content:
-    ${resumeContent}
-    `;
-
-    // ✅ Step 5: Generate AI content
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text().trim();
 
     // ✅ Step 6: Try parsing Gemini output into JSON
     let data;
