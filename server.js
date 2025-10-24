@@ -9,28 +9,36 @@ import analyzeRoutes from "./src/routes/analyze.js";
 import userRoutes from "./src/routes/user.js";
 
 dotenv.config();
-
 const app = express();
 
-// Middleware
+// ✅ Middleware
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-// Routes
+// ✅ Database connection
+connectDB();
+
+// ✅ API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/analyze", analyzeRoutes); // Gemini runs here
+app.use("/api/analyze", analyzeRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/user", userRoutes);
 
-// Root Route
+// ✅ Health check route (optional but recommended)
+app.get("/api/status", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "AI Career Companion Backend is running 🚀",
+    model: "gemini-1.5-flash-latest",
+  });
+});
+
+// ✅ Root route
 app.get("/", (req, res) => {
   res.json({ message: "AI Career Companion Backend Running 🚀" });
 });
 
-// Database Connection
-connectDB();
-
-// Start Server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

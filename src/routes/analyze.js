@@ -7,10 +7,12 @@ import * as pdfParse from "pdf-parse";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Initialize Gemini API with your key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 router.post("/", upload.single("file"), async (req, res) => {
+  console.log("🔍 Received /api/analyze request");
+  console.log("File:", req.file ? req.file.originalname : "None");
+
   try {
     const text = req.body.text || "";
     const file = req.file;
@@ -19,36 +21,47 @@ router.post("/", upload.single("file"), async (req, res) => {
     // ✅ Step 1: Convert PDF to text if PDF uploaded
     if (file && file.mimetype === "application/pdf") {
       try {
-        // Use pdfParse.default because of ESM import
         const pdfData = await pdfParse.default(file.buffer);
         resumeContent = pdfData.text;
       } catch (pdfError) {
         console.warn("⚠️ PDF parse failed, using raw text instead");
         resumeContent = file.buffer.toString("utf-8");
       }
-    }
-    // ✅ Step 2: Handle non-PDF files (DOCX, TXT, etc.)
-    else if (file) {
+    } else if (file) {
       resumeContent = file.buffer.toString("utf-8");
     }
 
-    // ✅ Step 3: Validate content
+    // ✅ Step 2: Validate resume content
     if (!resumeContent.trim()) {
       return res.status(400).json({ message: "Please provide resume content." });
     }
-// ✅ Step 4: Use the latest Gemini model (no 404 errors)
-const modelName = "gemini-1.5-flash-latest";
-console.log(`🧠 Gemini model in use: ${modelName}`);
 
-const model = genAI.getGenerativeModel({ model: modelName });
+    // ✅ Step 3: Initialize Gemini model
+    const modelName = "gemini-1.5-flash-latest";
+    console.log(`🧠 Gemini model in use: ${modelName}`);
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-// ... same prompt code ...
+    // ✅ Step 4: Define the prompt **inside the same scope**
+    const analysisPrompt = `
+    You are a professional AI resume analyzer.
+    Analyze the following resume and return a valid JSON ONLY.
 
-// ✅ Step 5: Generate AI content
-const result = await model.generateContent(prompt);
-const responseText = result.response.text().trim();
-console.log("✅ Gemini analysis completed successfully!");
+    Required JSON fields:
+    {
+      "score": number (0–100),
+      "skills": ["list of technical and soft skills"],
+      "keywords": ["ATS-relevant keywords"],
+      "feedback": "short paragraph of strengths and improvement suggestions"
+    }
 
+    Resume Content:
+    ${resumeContent}
+    `;
+
+    // ✅ Step 5: Generate AI content
+    const result = await model.generateContent(analysisPrompt);
+    const responseText = result.response.text().trim();
+    console.log("✅ Gemini analysis completed successfully!");
 
     // ✅ Step 6: Try parsing Gemini output into JSON
     let data;
@@ -68,7 +81,7 @@ console.log("✅ Gemini analysis completed successfully!");
     res.json({ success: true, ...data });
 
   } catch (error) {
-    console.error("❌ Gemini analysis error:", error);
+    console.error("❌ Gemini analysis error:", error.response?.data || error.message || error);
     res.status(500).json({
       success: false,
       message: "Gemini analysis failed",
