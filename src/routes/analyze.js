@@ -2,10 +2,12 @@
 import express from "express";
 import multer from "multer";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import * as pdfParse from "pdf-parse";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Initialize Gemini API with your key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 router.post("/", upload.single("file"), async (req, res) => {
@@ -14,49 +16,69 @@ router.post("/", upload.single("file"), async (req, res) => {
     const file = req.file;
     let resumeContent = text;
 
-    // Optional: read uploaded file content (basic UTF-8)
-    if (file) {
+    // ✅ Step 1: Convert PDF to text if PDF uploaded
+    if (file && file.mimetype === "application/pdf") {
+      try {
+        // Use pdfParse.default because of ESM import
+        const pdfData = await pdfParse.default(file.buffer);
+        resumeContent = pdfData.text;
+      } catch (pdfError) {
+        console.warn("⚠️ PDF parse failed, using raw text instead");
+        resumeContent = file.buffer.toString("utf-8");
+      }
+    }
+    // ✅ Step 2: Handle non-PDF files (DOCX, TXT, etc.)
+    else if (file) {
       resumeContent = file.buffer.toString("utf-8");
     }
 
+    // ✅ Step 3: Validate content
     if (!resumeContent.trim()) {
       return res.status(400).json({ message: "Please provide resume content." });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // ✅ Step 4: Use the latest Gemini model (no 404 errors)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const prompt = `
-    You are an AI resume expert. Analyze the following resume and return a valid JSON only.
-    Include:
+    You are a professional AI resume analyzer.
+    Analyze the following resume and return a valid JSON ONLY.
+
+    Required JSON fields:
     {
-      "score": number between 0-100 representing overall quality,
-      "skills": ["list of detected technical & soft skills"],
-      "feedback": "short summary of improvements or suggestions",
-      "keywords": ["suggested keywords for ATS optimization"]
+      "score": number (0–100),
+      "skills": ["list of technical and soft skills"],
+      "keywords": ["ATS-relevant keywords"],
+      "feedback": "short paragraph of strengths and improvement suggestions"
     }
-    Resume:
+
+    Resume Content:
     ${resumeContent}
     `;
 
+    // ✅ Step 5: Generate AI content
     const result = await model.generateContent(prompt);
     const responseText = result.response.text().trim();
 
-    // Try to parse as JSON
+    // ✅ Step 6: Try parsing Gemini output into JSON
     let data;
     try {
       data = JSON.parse(responseText);
-    } catch {
+    } catch (err) {
+      console.warn("⚠️ Gemini returned non-JSON, fallback triggered");
       data = {
-        score: 75,
+        score: 70,
         skills: [],
         keywords: [],
         feedback: responseText,
       };
     }
 
+    // ✅ Step 7: Send structured response to frontend
     res.json({ success: true, ...data });
+
   } catch (error) {
-    console.error("Gemini analysis error:", error);
+    console.error("❌ Gemini analysis error:", error);
     res.status(500).json({
       success: false,
       message: "Gemini analysis failed",
