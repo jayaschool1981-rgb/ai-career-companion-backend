@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://ai-career-companion-backend.onrender.com/api",
+  baseURL: "http://localhost:5000/api", // ✅ LOCAL BACKEND
   headers: {
     "Content-Type": "application/json",
   },
