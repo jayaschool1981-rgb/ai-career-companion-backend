@@ -11,7 +11,7 @@
   "author": "Om Barvekar",
   "license": "MIT",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.13.6",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "keyword-extractor": "^0.0.28",
     "mongoose": "^8.19.2",
+    "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "natural": "^8.1.0",
     "node-fetch": "^3.3.2",
