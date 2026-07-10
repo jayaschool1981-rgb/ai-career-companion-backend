@@ -33,7 +33,10 @@ console.log("➡️ MONGO_URI:", process.env.MONGO_URI ? "Loaded ✅" : "Missing
 // ✅ Middleware
 // -----------------------------
 app.use(cors({
-  origin: "*", // 🔥 change to frontend URL in production
+  origin: (origin, callback) => {
+    // Allow dynamic reflection of origin to satisfy client-side credentials requests
+    callback(null, true);
+  },
   credentials: true,
 }));
 
