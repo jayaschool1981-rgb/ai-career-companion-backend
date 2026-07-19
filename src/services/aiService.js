@@ -5,7 +5,7 @@ export const generateSEOContent = async (prompt) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "meta-llama/llama-3-8b-instruct", // ✅ FREE MODEL
+        model: process.env.OPENROUTER_MODEL || "openrouter/free", // ✅ AUTO-ROUTING FREE FALLBACK
         messages: [
           {
             role: "user",
