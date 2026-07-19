@@ -10,6 +10,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import mongoose from "mongoose";
 
 // -----------------------------
 // ✅ Internal Imports
@@ -65,11 +66,22 @@ app.use("/api/user", userRoutes);
 // -----------------------------
 // ✅ Health Check Route
 // -----------------------------
-app.get("/api/status", (req, res) => {
+app.get("/api/status", async (req, res) => {
+  let dbStatus = "disconnected";
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.db.admin().ping();
+      dbStatus = "connected";
+    }
+  } catch (err) {
+    console.error("❌ Database health check ping failed:", err.message);
+  }
+
   res.status(200).json({
     success: true,
     status: "ok",
-    message: "AI Career Companion Backend is running 🚀",
+    database: dbStatus,
+    message: "AI Career Sync Backend is running 🚀",
     aiProvider: "OpenRouter",
     timestamp: new Date(),
   });
