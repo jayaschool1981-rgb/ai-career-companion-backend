@@ -1,20 +1,11 @@
-// -----------------------------
-// ✅ Load Environment Variables FIRST
-// -----------------------------
-import dotenv from "dotenv";
-dotenv.config();
-
-// -----------------------------
-// ✅ Core Imports
-// -----------------------------
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import mongoose from "mongoose";
 
-// -----------------------------
-// ✅ Internal Imports
-// -----------------------------
+import { env } from "./src/config/env.js";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/auth.js";
 import resumeRoutes from "./src/routes/resume.js";
@@ -24,39 +15,69 @@ import userRoutes from "./src/routes/user.js";
 const app = express();
 
 // -----------------------------
-// ✅ ENV DEBUG (SAFE LOGGING)
+// 🔹 1. Security & Helmet Middleware
 // -----------------------------
-console.log("🔐 ENV CHECK:");
-console.log("➡️ OPENROUTER_API_KEY:", process.env.OPENROUTER_API_KEY ? "Loaded ✅" : "Missing ❌");
-console.log("➡️ MONGO_URI:", process.env.MONGO_URI ? "Loaded ✅" : "Missing ❌");
-
-// -----------------------------
-// ✅ Middleware
-// -----------------------------
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow dynamic reflection of origin to satisfy client-side credentials requests
-    callback(null, true);
-  },
-  credentials: true,
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// Dynamic CORS Whitelist
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
 
-// ✅ Logging middleware (pro)
+      const allowedPatterns = [
+        "localhost",
+        "127.0.0.1",
+        ".vercel.app",
+        ".onrender.com",
+      ];
+
+      const isAllowed = allowedPatterns.some((pattern) => origin.includes(pattern)) || origin === env.CORS_ORIGIN;
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan("dev"));
 
-// ✅ Static files
+// -----------------------------
+// 🔹 2. Rate Limiting Middleware
+// -----------------------------
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests from this IP address. Please try again after 15 minutes.",
+  },
+});
+
+app.use("/api/", apiLimiter);
+
+// -----------------------------
+// 🔹 3. Static Files
+// -----------------------------
 app.use("/uploads", express.static("uploads"));
 
 // -----------------------------
-// ✅ Database Connection
+// 🔹 4. Database Connection
 // -----------------------------
 connectDB();
 
 // -----------------------------
-// ✅ Routes
+// 🔹 5. API Routes
 // -----------------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/analyze", analyzeRoutes);
@@ -64,7 +85,7 @@ app.use("/api/resume", resumeRoutes);
 app.use("/api/user", userRoutes);
 
 // -----------------------------
-// ✅ Health Check Route
+// 🔹 6. Health & Status Check
 // -----------------------------
 app.get("/api/status", async (req, res) => {
   let dbStatus = "disconnected";
@@ -81,23 +102,19 @@ app.get("/api/status", async (req, res) => {
     success: true,
     status: "ok",
     database: dbStatus,
-    message: "AI Career Sync Backend is running 🚀",
-    aiProvider: "OpenRouter",
+    message: "AI Career Companion Enterprise Backend is active 🚀",
     timestamp: new Date(),
   });
 });
 
-// -----------------------------
-// ✅ Root Route
-// -----------------------------
 app.get("/", (req, res) => {
   res.status(200).json({
-    message: "🚀 AI Career Companion Backend Running",
+    message: "🚀 AI Career Companion Enterprise Backend Running",
   });
 });
 
 // -----------------------------
-// ❌ 404 Handler (IMPORTANT)
+// 🔹 7. 404 Handler
 // -----------------------------
 app.use((req, res) => {
   res.status(404).json({
@@ -107,28 +124,28 @@ app.use((req, res) => {
 });
 
 // -----------------------------
-// ❌ Global Error Handler (PRO 🔥)
+// 🔹 8. Global Error Handler
 // -----------------------------
 app.use((err, req, res, next) => {
-  console.error("❌ Global Error:", err.message);
+  console.error("❌ Global API Error:", err.message);
 
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal Server Error",
+    ...(env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
 // -----------------------------
-// 🚀 Start Server
+// 🔹 9. Server Startup
 // -----------------------------
-const PORT = process.env.PORT || 5000;
+const PORT = env.PORT;
 
 app.listen(PORT, () => {
   console.log(`
 =========================================
-🚀 Server running on http://localhost:${PORT}
-📦 Environment: ${process.env.NODE_ENV || "development"}
-🤖 AI Provider: OpenRouter
+🚀 Server running in [${env.NODE_ENV}] mode on http://localhost:${PORT}
+🛡️ Security: Helmet + CORS Whitelist + Rate Limiting Enabled
 =========================================
   `);
 });
